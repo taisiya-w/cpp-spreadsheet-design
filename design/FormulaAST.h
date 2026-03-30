@@ -1,11 +1,12 @@
 #pragma once
 
-#include "FormulaLexer.h"
 #include "common.h"
 
 #include <forward_list>
 #include <functional>
+#include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace ASTImpl {
 class Expr;
@@ -17,17 +18,25 @@ class ParsingError : public std::runtime_error {
 
 class FormulaAST {
 public:
-    explicit FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr);
+    using CellLookup = std::function<double(Position)>;
+
+    explicit FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr,
+                        std::forward_list<Position> cells);
     FormulaAST(FormulaAST&&) = default;
     FormulaAST& operator=(FormulaAST&&) = default;
     ~FormulaAST();
 
-    double Execute() const;
+    double Execute(const CellLookup& lookup) const;
+
     void Print(std::ostream& out) const;
+
     void PrintFormula(std::ostream& out) const;
+
+    std::vector<Position> GetCells() const;
 
 private:
     std::unique_ptr<ASTImpl::Expr> root_expr_;
+    std::forward_list<Position> cells_;
 };
 
 FormulaAST ParseFormulaAST(std::istream& in);

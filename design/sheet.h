@@ -3,11 +3,19 @@
 #include "cell.h"
 #include "common.h"
 
-#include <functional>
+#include <memory>
+#include <unordered_set>
+#include <vector>
+
+struct PositionHash {
+    std::size_t operator()(Position pos) const noexcept {
+        return std::hash<int>{}(pos.row) ^ (std::hash<int>{}(pos.col) << 16);
+    }
+};
 
 class Sheet : public SheetInterface {
 public:
-    ~Sheet();
+    ~Sheet() = default;
 
     void SetCell(Position pos, std::string text) override;
 
@@ -21,14 +29,28 @@ public:
     void PrintValues(std::ostream& output) const override;
     void PrintTexts(std::ostream& output) const override;
 
-    const Cell* GetConcreteCell(Position pos) const;
-    Cell* GetConcreteCell(Position pos);
-
 private:
-    void MaybeIncreaseSizeToIncludePosition(Position pos);
-    void PrintCells(std::ostream& output,
-                    const std::function<void(const CellInterface&)>& printCell) const;
-    Size GetActualSize() const;
-
     std::vector<std::vector<std::unique_ptr<Cell>>> cells_;
+
+    void CheckPosition(Position pos) const;
+    void GrowToFit(Position pos);
+
+    Cell* GetCellPtr(Position pos);
+    const Cell* GetCellPtr(Position pos) const;
+
+    // Создаёт Cell если её нет, возвращает ссылку.
+    Cell& GetOrCreateCell(Position pos);
+
+    bool HasCircularDependency(
+        Position pos,
+        const std::vector<Position>& new_refs) const;
+
+    bool DFS(Position current,
+             Position target,
+             std::unordered_set<Position, PositionHash>& visited) const;
+    void UpdateDependencies(Cell& cell,
+                            const std::vector<Position>& old_refs,
+                            const std::vector<Position>& new_refs);
+
+    void InvalidateCacheUpwards(Cell& cell);
 };
